@@ -121,9 +121,14 @@ int	CLib1::LoadLib(void)
 	if (dllpathname == NULL)
 		return 0;
 
-	isAlreadyLoaded = ::GetModuleHandleA(dllpathname) != NULL;
-
-	hDLL = ::LoadLibraryA(dllpathname);
+	module_t hDLLFromGet = ::GetModuleHandleA(dllpathname);
+	isAlreadyLoaded = hDLLFromGet != NULL;
+	if ( hDLLFromGet ) {
+		hDLL = hDLLFromGet;
+	}
+	else {
+		hDLL = ::LoadLibraryA(dllpathname);
+	}
 	free(dllpathname);
 	dllpathname= NULL;
 	
@@ -204,9 +209,8 @@ int CLib1::LoadLib() {
 #if defined(WIN32)
 int	CLib1::Load(void)
 {
-	if (hDLL == NULL)
+	if (!LoadLib())
 		return 0;
-
 
 	// アドレス取得
 	if ( ! isAlreadyLoaded ) {
@@ -265,8 +269,8 @@ int	CLib1::Load(void)
 }
 #elif defined(POSIX)
 int CLib1::Load(void) {
-    if (hDLL == NULL) {
-	return 0;
+    if (!LoadLib()) {
+		return 0;
     }
     
     // アドレス取得
@@ -328,6 +332,7 @@ int	CLib1::Unload(void)
 		// 実行
 		(*unloadlib)();
 	}
+	UnloadLib();
 
 	return 1;
 }
@@ -348,6 +353,7 @@ int CLib1::Unload(void) {
 
     // 実行
     (*unloadlib)();
+	UnloadLib();
     
     return 1;
 }
@@ -359,18 +365,20 @@ int CLib1::Unload(void) {
  * -----------------------------------------------------------------------
  */
 #if defined(WIN32)
-void	CLib1::Release(void)
+void	CLib1::UnloadLib(void)
 {
 	if (hDLL == NULL)
 		return;
 
 	requestlib = NULL;
 
-	FreeLibrary(hDLL);
+	if ( ! isAlreadyLoaded ) {
+		FreeLibrary(hDLL);
+	}
 	hDLL = NULL;
 }
 #elif defined(POSIX)
-void CLib1::Release(void) {
+void CLib1::UnloadLib(void) {
     if (hDLL == NULL) {
 	return;
     }
