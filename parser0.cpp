@@ -1395,6 +1395,20 @@ void	CParser0::StructFormulaCell(yaya::string_t &str, std::vector<CCell> &cells)
 			}
 
 			if ( result >= 0 ) {
+				// _in_ ‰‰ŽZŽq‚ÍŽ¯•ÊŽq–¼‚É–„‚ßž‚Ü‚ê‚Ä‚¢‚éê‡‚Í‰‰ŽZŽq‚Æ‚µ‚Ä”FŽ¯‚µ‚È‚¢
+				// —á: _total_in_answer ‚Í‰‰ŽZŽq _in_ ‚ðŠÜ‚ÞŽ®‚Å‚Í‚È‚­Ž¯•ÊŽq‚Æ‚µ‚Äˆµ‚¤
+				if ( result == F_TAG_IFIN && i > 0 ) {
+					yaya::char_t prev = str[i - 1];
+					bool preceded_by_ident = (prev >= L'A' && prev <= L'Z') ||
+					                         (prev >= L'a' && prev <= L'z') ||
+					                         (prev >= L'0' && prev <= L'9') ||
+					                         prev == L'_' ||
+					                         prev > 127;
+					if ( preceded_by_ident ) {
+						continue;
+					}
+				}
+
 				tagtype = result;
 				taglen  = formulatag_len[tagtype];
 				
