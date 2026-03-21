@@ -509,6 +509,7 @@ int CLib1::Request(const yaya::string_t &istr, yaya::string_t &ostr) {
 
     // Œ‹‰ÊŽæ“¾
 	std::string t_ostr(ogmem, len);
+	free(ogmem);
 
     // Œ‹‰Ê‚ðUCS-2‚Ö•ÏŠ·
     wchar_t *t_ostr2 = Ccct::MbcsToUcs2(t_ostr, charset);
