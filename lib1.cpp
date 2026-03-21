@@ -13,6 +13,7 @@
 #include <vector>
 
 #if defined(POSIX)
+# include <cstring>
 # include <dlfcn.h>
 # include <sys/stat.h>
 #endif
@@ -195,7 +196,19 @@ int CLib1::LoadLib() {
     }
 
     hDLL = dlopen(libfile.c_str(), RTLD_LAZY);
-    return (hDLL != NULL) ? 1 : 0;
+    if (hDLL != NULL) {
+        char *p = strdup(libfile.c_str());
+        filename = basename(p);
+        free(p);
+        auto pos = filename.rfind(".dll");
+        if (pos != decltype(filename)::npos) {
+            filename = filename.substr(0, pos);
+        }
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }
 #endif
 
@@ -276,8 +289,10 @@ int CLib1::Load(void) {
     // アドレス取得
 	int (*loadlib)(char* h, long len) = NULL;
 
-	if (loadlib == NULL)
-	 loadlib = (int(*)(char*,long))dlsym(hDLL, "load");
+	if (loadlib == NULL) {
+        std::string func_name = filename + "_saori_load";
+        loadlib = (long(*)(char*,long))dlsym(hDLL, func_name.c_str());
+    }
     if (loadlib == NULL) {
 	 return 0;
     }
@@ -345,8 +360,10 @@ int CLib1::Unload(void) {
     // アドレス取得
 	int (*unloadlib)(void) = NULL;
 
-	if (unloadlib == NULL)
-     unloadlib = (int(*)(void))dlsym(hDLL, "unload");
+	if (unloadlib == NULL) {
+        std::string func_name = filename + "_saori_unload";
+        unloadlib = (int(*)(long))dlsym(hDLL, func_name.c_str());
+    }
     if (unloadlib == NULL) {
 	 return 0;
     }
@@ -465,8 +482,10 @@ int CLib1::Request(const yaya::string_t &istr, yaya::string_t &ostr) {
     }
     
     // アドレス取得
-	if (requestlib == NULL)
-    requestlib = (char*(*)(char*, long *))dlsym(hDLL, "request");
+	if (requestlib == NULL) {
+        std::string func_name = filename + "_saori_request";
+        requestlib = (char*(*)(long, char*, long *))dlsym(hDLL, func_name.c_str());
+    }
     if (requestlib == NULL) {
 	return 0;
     }
@@ -490,6 +509,7 @@ int CLib1::Request(const yaya::string_t &istr, yaya::string_t &ostr) {
 
     // 結果取得
 	std::string t_ostr(ogmem, len);
+	free(ogmem);
 
     // 結果をUCS-2へ変換
     wchar_t *t_ostr2 = Ccct::MbcsToUcs2(t_ostr, charset);
