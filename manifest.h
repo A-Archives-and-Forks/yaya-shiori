@@ -76,6 +76,9 @@ extern const yaya::char_t *aya_author;
 
 #define	ST_FORMULA				32				/* 数式（この値は構文解析時のみフラグとして使われます) */
 								// 33、34欠番
+
+#define ST_FLAG_FORMULA_WITH_PARAM_START 35
+
 #define	ST_FORMULA_OUT_FORMULA	35				/* 出力（数式。配列、引数つき関数も含まれます） */
 #define	ST_FORMULA_SUBST		36				/* 代入 */
 #define	ST_IF					37				/* if */
@@ -88,6 +91,10 @@ extern const yaya::char_t *aya_author;
 												/* AYA5ではcase-when-others構文は内部でif-elseif-else構文に変換されます */
 #define	ST_PARALLEL				45				/* parallel */
 #define	ST_VOID					46				/* void */
+
+#define	ST_RETURN_PARAM			47				/* 引数つきreturn */
+
+#define ST_FLAG_FORMULA_WITH_PARAM_END 47
 
 // 数式の項の種別
 #define	F_TAG_UNKNOWN			-2

@@ -110,6 +110,12 @@ void	CLogExCode::OutExecutionCodeForCheck(void)
 				tmpstr = yaya::ws_itoa(it2->jumpto) + L")\n";
 				vm.logger().Write(tmpstr);
 				break;
+			case ST_RETURN_PARAM:
+				vm.logger().Write(indent);
+				vm.logger().Write(L"return with param (jump to : ");
+				tmpstr = yaya::ws_itoa(it2->jumpto) + L")\n";
+				vm.logger().Write(tmpstr);
+				break;
 			case ST_ELSE:
 				vm.logger().Write(indent);
 				vm.logger().Write(L"else (jump to : ");

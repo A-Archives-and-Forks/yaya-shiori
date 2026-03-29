@@ -284,6 +284,7 @@ char	CParser1::SetBreakJumpNo(const yaya::string_t& dicfilename)
 			// break/continue/return
 			else if (it->statement[i].type == ST_BREAK ||
 				it->statement[i].type == ST_CONTINUE ||
+				it->statement[i].type == ST_RETURN_PARAM ||
 				it->statement[i].type == ST_RETURN) {
 				if (depth < 0) {
 					vm.logger().Error(E_E, 31, it->dicfilename, it->statement[i].linecount);
@@ -619,7 +620,7 @@ char	CParser1::CheckFunctionArgument(CStatement& st, const yaya::string_t& dicfi
 {
 	size_t errcount = 0;
 
-	if (st.type >= ST_FORMULA_OUT_FORMULA && st.type <= ST_VOID) {
+	if (st.type >= ST_FLAG_FORMULA_WITH_PARAM_START && st.type <= ST_FLAG_FORMULA_WITH_PARAM_END) {
 		int	beftype = F_TAG_UNKNOWN;
 		ptrdiff_t befindex = -1;
 	

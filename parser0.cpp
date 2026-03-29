@@ -978,11 +978,6 @@ char	CParser0::StoreInternalStatement(size_t targetfunc, yaya::string_t &str, si
 		targetfunction.statement.emplace_back(CStatement(ST_CONTINUE, linecount));
 		return 1;
 	}
-	// return
-	else if (str == L"return") {
-		targetfunction.statement.emplace_back(CStatement(ST_RETURN, linecount));
-		return 1;
-	}
 	// --
 	else if (str == L"--") {
 		targetfunction.statement[m_BlockhHeaderOfProcessingIndexStack.back()].ismutiarea = true;
@@ -1001,8 +996,19 @@ char	CParser0::StoreInternalStatement(size_t targetfunc, yaya::string_t &str, si
 		st  = t_st;
 		par = t_par;
 	}
+	// return
+	if (st == L"return") {
+		if (par.size()) {
+			str = par;
+			return MakeStatement(ST_RETURN_PARAM, targetfunc, str, dicfilename, linecount);
+		}
+		else {
+			targetfunction.statement.emplace_back(CStatement(ST_RETURN, linecount));
+			return 1;
+		}
+	}
 	// if
-	if (st == L"if") {
+	else if (st == L"if") {
 		str = par;
 		return MakeStatement(ST_IF, targetfunc, str, dicfilename, linecount);
 	}
