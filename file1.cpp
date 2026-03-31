@@ -234,6 +234,7 @@ int	CFile1::ReadBin(yaya::string_t &ostr, size_t len, yaya::char_t alt)
 
 	char f_buffer[1024];
 	size_t read = 0;
+	bool isEOF = false;
 
 	while ( true ) {
 		size_t lenread = len - read;
@@ -243,6 +244,9 @@ int	CFile1::ReadBin(yaya::string_t &ostr, size_t len, yaya::char_t alt)
 
 		size_t done = fread(f_buffer,1,lenread,fp);
 		if ( ! done ) {
+			if ( feof(fp) ) {
+				isEOF = true;
+			}
 			break;
 		}
 
@@ -259,7 +263,7 @@ int	CFile1::ReadBin(yaya::string_t &ostr, size_t len, yaya::char_t alt)
 		if ( done < lenread ) { break; }
 	}
 
-	return read;
+	return read ? read : (isEOF ? -1 : 0);
 }
 
 /* -----------------------------------------------------------------------
