@@ -7314,7 +7314,6 @@ CValue	CSystemFunction::DIRECTSSTP(CSF_FUNCPARAM &p)
 	if (data.empty()) {
 		return CValue(-1);
 	}
-	/////////////////////////////////////
 	std::istringstream iss(data);
 	std::string uuid;
 	while (true) {
@@ -7336,6 +7335,9 @@ CValue	CSystemFunction::DIRECTSSTP(CSF_FUNCPARAM &p)
 		}
 	}
 	data = SendDataUsingUnixSocket(path + uuid, request, false);
+	if (data.empty()) {
+		return CValue(-1);
+	}
 
 	wchar_t *res = Ccct::MbcsToUcs2(data.c_str(), CHARSET_UTF8);
 
