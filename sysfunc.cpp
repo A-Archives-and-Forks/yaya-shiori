@@ -7217,7 +7217,7 @@ static LRESULT CALLBACK DirectSSTPClientProc(HWND hwnd, UINT msg, WPARAM wParam,
 
 #else
 
-static std::string SendDataUsingUnixSocket(std::string path, std::string request, bool has_header) {
+static std::string SendDataUsingUnixSocket(const std::string &path, std::string request, bool has_header) {
 	sockaddr_un addr;
 	if (path.length() >= sizeof(addr.sun_path)) {
 		return "";
