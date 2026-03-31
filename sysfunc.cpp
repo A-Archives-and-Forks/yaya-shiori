@@ -7215,6 +7215,61 @@ static LRESULT CALLBACK DirectSSTPClientProc(HWND hwnd, UINT msg, WPARAM wParam,
 	return ::DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
+#else
+
+static std::string SendDataUsingUnixSocket(std::string path, std::string request, bool has_header) {
+	sockaddr_un addr;
+	if (path.length() >= sizeof(addr.sun_path)) {
+		return "";
+	}
+	int soc = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (soc == -1) {
+		return "";
+	}
+	memset(&addr, 0, sizeof(sockaddr_un));
+	addr.sun_family = AF_UNIX;
+	// null-terminatedÇ‡èëÇ´çûÇ‹ÇπÇÈ
+	strncpy(addr.sun_path, path.c_str(), path.length() + 1);
+	if (connect(soc, reinterpret_cast<const sockaddr *>(&addr), sizeof(addr)) == -1) {
+		return "";
+	}
+	if (send(soc, request.data(), request.size(), 0) != request.size()) {
+		close(soc);
+		return "";
+	}
+	shutdown(soc, SHUT_WR);
+	char buffer[BUFFER_SIZE] = {};
+	std::string data;
+	uint32_t remain = 0;
+	if (has_header) {
+		if (read(soc, buffer, sizeof(uint32_t)) != sizeof(uint32_t)) {
+			close(soc);
+			return "";
+		}
+		remain = *reinterpret_cast<uint32_t *>(buffer);
+		data.reserve(remain);
+	}
+	while (true) {
+		int ret = read(soc, buffer, BUFFER_SIZE);
+		if (ret == -1) {
+			close(soc);
+			return "";
+		}
+		if (ret == 0) {
+			close(soc);
+			break;
+		}
+		if (!has_header || remain > ret) {
+			data.append(buffer, ret);
+		}
+		else {
+			data.append(buffer, remain);
+		}
+		remain -= ret;
+	}
+	return data;
+}
+
 #endif
 
 CValue	CSystemFunction::DIRECTSSTP(CSF_FUNCPARAM &p)
@@ -7255,53 +7310,11 @@ CValue	CSystemFunction::DIRECTSSTP(CSF_FUNCPARAM &p)
 	if (sem_post(&shm->sem) == -1) {
 		return CValue(-1);
 	}
-	std::string fmo = path + "ninix";
-	sockaddr_un addr;
-	if (fmo.length() >= sizeof(addr.sun_path)) {
+	std::string data = SendDataUsingUnixSocket(path + "ninix", "GetFMO\r\n", true);
+	if (data.empty()) {
 		return CValue(-1);
 	}
-	int soc = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (soc == -1) {
-		return CValue(-1);
-	}
-	memset(&addr, 0, sizeof(sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	// null-terminatedÇ‡èëÇ´çûÇ‹ÇπÇÈ
-	strncpy(addr.sun_path, fmo.c_str(), fmo.length() + 1);
-	if (connect(soc, reinterpret_cast<const sockaddr *>(&addr), sizeof(addr)) == -1) {
-		return CValue(-1);
-	}
-	std::string command = "GetFMO\r\n";
-	if (send(soc, command.data(), command.size(), 0) != command.size()) {
-		close(soc);
-		return CValue(-1);
-	}
-	shutdown(soc, SHUT_WR);
-	char buffer[BUFFER_SIZE] = {};
-	if (read(soc, buffer, sizeof(uint32_t)) != sizeof(uint32_t)) {
-		close(soc);
-		return CValue(-1);
-	}
-	uint32_t remain = *reinterpret_cast<uint32_t *>(buffer);
-	std::string data(buffer, sizeof(uint32_t));
-	while (true) {
-		int ret = read(soc, buffer, BUFFER_SIZE);
-		if (ret == -1) {
-			close(soc);
-			return CValue(-1);
-		}
-		if (ret == 0) {
-			close(soc);
-			break;
-		}
-		if (remain > ret) {
-			data.append(buffer, ret);
-		}
-		else {
-			data.append(buffer, remain);
-		}
-		remain -= ret;
-	}
+	/////////////////////////////////////
 	std::istringstream iss(data);
 	std::string uuid;
 	while (true) {
@@ -7322,38 +7335,7 @@ CValue	CSystemFunction::DIRECTSSTP(CSF_FUNCPARAM &p)
 			break;
 		}
 	}
-	std::string dsstp = path + uuid;
-	if (path.length() >= sizeof(addr.sun_path)) {
-		return CValue(-1);
-	}
-	soc = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (soc == -1) {
-		return CValue(-1);
-	}
-	memset(&addr, 0, sizeof(sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	// null-terminatedÇ‡èëÇ´çûÇ‹ÇπÇÈ
-	strncpy(addr.sun_path, dsstp.c_str(), dsstp.length() + 1);
-	if (connect(soc, reinterpret_cast<const sockaddr *>(&addr), sizeof(addr)) == -1) {
-		return CValue(-1);
-	}
-	if (write(soc, request.c_str(), request.length()) == -1) {
-		close(soc);
-		return CValue(-1);
-	}
-	data.clear();
-	while (true) {
-		int ret = read(soc, buffer, BUFFER_SIZE);
-		if (ret == -1) {
-			close(soc);
-			return CValue(-1);
-		}
-		if (ret == 0) {
-			close(soc);
-			break;
-		}
-		data.append(buffer, ret);
-	}
+	data = SendDataUsingUnixSocket(path + uuid, request, false);
 
 	wchar_t *res = Ccct::MbcsToUcs2(data.c_str(), CHARSET_UTF8);
 
