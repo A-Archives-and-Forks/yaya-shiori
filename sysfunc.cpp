@@ -329,6 +329,8 @@ constexpr CSF_FUNCTABLE CSystemFunction::sysfunc[] = {
 	{ &CSystemFunction::TOAUTOEX , L"TOAUTOEX" } ,
 	// 特殊(9)
 	{ &CSystemFunction::DIRECTSSTP , L"DIRECTSSTP" } ,
+	// ファイル操作(9)
+	{ &CSystemFunction::FSTATUS , L"FSTATUS" } ,
 };
 
 #define SYSFUNC_NUM (sizeof(CSystemFunction::sysfunc)/sizeof(CSystemFunction::sysfunc[0]))
@@ -2522,7 +2524,26 @@ CValue	CSystemFunction::FTELL(CSF_FUNCPARAM &p){
 	return CValue(result);
 }
 
+/* -----------------------------------------------------------------------
+ *  関数名  ：  CSystemFunction::FSTATUS
+ * -----------------------------------------------------------------------
+ */
+CValue	CSystemFunction::FSTATUS(CSF_FUNCPARAM &p){
+	if (p.arg.array_size() < 1) {
+		vm.logger().Error(E_W, 8, L"FSTATUS", p.dicname, p.line);
+		SetError(8);
+		return CValue(-1);
+	}
 
+	if (!p.arg.array()[0].IsString()) {
+		vm.logger().Error(E_W, 9, L"FSTATUS", p.dicname, p.line);
+		SetError(9);
+		return CValue(-1);
+	}
+
+	yaya::int_t result=vm.files().FStatus(vm.basis().ToFullPath(p.arg.array()[0].s_value));
+	return CValue(result);
+}
 
 
 /* -----------------------------------------------------------------------

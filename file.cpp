@@ -339,4 +339,19 @@ yaya::int_t CFile::FTell(const yaya::string_t &name)
 	return 0;
 }
 
+/* -----------------------------------------------------------------------
+ *  関数名  ：  CFile::FStatus
+ *  機能概要：  Cライブラリfeofとferrorをあわせたもの
+ *  返値　　：　0=エラーなし -1=エラーあり 1=EOF
+ * -----------------------------------------------------------------------
+ */
+yaya::int_t CFile::FStatus(const yaya::string_t &name)
+{
+	std::list<CFile1>::iterator it = std::find(filelist.begin(),filelist.end(),name);
+	if ( it != filelist.end() ) {
+		return it->FStatus();
+	}
+
+	return -1;
+}
 

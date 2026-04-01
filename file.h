@@ -72,6 +72,8 @@ public:
 
 	yaya::int_t FSeek(yaya::int_t offset,int origin);
 	yaya::int_t FTell();
+
+	yaya::int_t FStatus();
 };
 
 //----
@@ -106,6 +108,8 @@ public:
 
 	yaya::int_t FSeek(const yaya::string_t &name, yaya::int_t offset,const yaya::string_t &mode);
 	yaya::int_t FTell(const yaya::string_t &name);
+
+	yaya::int_t FStatus(const yaya::string_t &name);
 };
 
 //----
