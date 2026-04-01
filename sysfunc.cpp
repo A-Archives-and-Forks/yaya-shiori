@@ -44,8 +44,26 @@
 #endif
 
 #if defined(POSIX)
+# include <climits>
+# include <cstdint>
+# include <cstring>
+# include <fcntl.h>
 # include <memory>
-#endif
+# include <semaphore.h>
+# include <sstream>
+# include <sys/mman.h>
+# include <sys/socket.h>
+# include <sys/un.h>
+# include <unistd.h>
+
+struct shm_t {
+	uint32_t size;
+	sem_t sem;
+	char buf[PATH_MAX];
+};
+
+const int BUFFER_SIZE = 1024;
+#endif // POSIX
 
 #include "sysfunc.h"
 #include "ayavm.h"
@@ -7218,14 +7236,140 @@ static LRESULT CALLBACK DirectSSTPClientProc(HWND hwnd, UINT msg, WPARAM wParam,
 	return ::DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
+#else
+
+static std::string SendDataUsingUnixSocket(const std::string &path, std::string request, bool has_header) {
+	sockaddr_un addr = {};
+	if (path.length() >= sizeof(addr.sun_path)) {
+		return "";
+	}
+	int soc = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (soc == -1) {
+		return "";
+	}
+	addr.sun_family = AF_UNIX;
+	// null-terminatedÇ‡èëÇ´çûÇ‹ÇπÇÈ
+	strncpy(addr.sun_path, path.c_str(), path.length() + 1);
+	if (connect(soc, reinterpret_cast<const sockaddr *>(&addr), sizeof(addr)) == -1) {
+		return "";
+	}
+	if (send(soc, request.data(), request.size(), 0) != request.size()) {
+		close(soc);
+		return "";
+	}
+	shutdown(soc, SHUT_WR);
+	char buffer[BUFFER_SIZE] = {};
+	std::string data;
+	uint32_t remain = 0;
+	if (has_header) {
+		if (read(soc, buffer, sizeof(uint32_t)) != sizeof(uint32_t)) {
+			close(soc);
+			return "";
+		}
+		remain = *reinterpret_cast<uint32_t *>(buffer);
+		data.reserve(remain);
+	}
+	while (true) {
+		int ret = read(soc, buffer, BUFFER_SIZE);
+		if (ret == -1) {
+			close(soc);
+			return "";
+		}
+		if (ret == 0) {
+			close(soc);
+			break;
+		}
+		if (!has_header || remain > ret) {
+			data.append(buffer, ret);
+		}
+		else {
+			data.append(buffer, remain);
+		}
+		remain -= ret;
+	}
+	return data;
+}
+
 #endif
 
 CValue	CSystemFunction::DIRECTSSTP(CSF_FUNCPARAM &p)
 {
 #ifdef POSIX
-	vm.logger().Error(E_W, 13, L"DIRECTSSTP", p.dicname, p.line);
-	SetError(13);
-	return CValue(-1);
+	if (p.arg.array_size() < 2) {
+		vm.logger().Error(E_W, 8, L"DIRECTSSTP", p.dicname, p.line);
+		SetError(8);
+		return CValue(-1);
+	}
+
+	if (!p.arg.array()[0].IsIntReal()) {
+		vm.logger().Error(E_W, 9, L"DIRECTSSTP", p.dicname, p.line);
+		SetError(9);
+		return CValue(-1);
+	}
+
+	int target = p.arg.array()[0].GetValueInt();
+	char *req = Ccct::Ucs2ToMbcs(p.arg.array()[1].GetValueString(), CHARSET_UTF8);
+	std::string request(req);
+	free(req);
+
+	// TODO: log error message
+	shm_t *shm;
+	int fd = shm_open("/ninix", O_RDWR, 0);
+	if (fd == -1) {
+		return CValue(-1);
+	}
+	shm = static_cast<shm_t *>(mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+	close(fd);
+	if (shm == MAP_FAILED) {
+		return CValue(-1);
+	}
+	if (sem_wait(&shm->sem) == -1) {
+		return CValue(-1);
+	}
+	std::string path(shm->buf, shm->size);
+	if (sem_post(&shm->sem) == -1) {
+		return CValue(-1);
+	}
+	std::string data = SendDataUsingUnixSocket(path + "ninix", "GetFMO\r\n", true);
+	if (data.empty()) {
+		return CValue(-1);
+	}
+	std::istringstream iss(data);
+	std::string uuid;
+	while (true) {
+		if (!iss) {
+			return CValue(-1);
+		}
+		std::string tmp;
+		int hwnd;
+		std::getline(iss, tmp);
+		std::istringstream line(tmp);
+		std::getline(iss, uuid, '.');
+		std::getline(iss, tmp, '\x01');
+		if (tmp != "hwnd") {
+			continue;
+		}
+		std::getline(iss, tmp);
+		if (target == atoi(tmp.c_str())) {
+			break;
+		}
+	}
+	data = SendDataUsingUnixSocket(path + uuid, request, false);
+	if (data.empty()) {
+		return CValue(-1);
+	}
+
+	wchar_t *res = Ccct::MbcsToUcs2(data.c_str(), CHARSET_UTF8);
+
+	if ( ! res ) {
+		return CValue(L"");
+	}
+
+	CValue val(res);
+
+	free(res);
+
+	return val;
 #else
 	if (p.arg.array_size() < 2) {
 		vm.logger().Error(E_W, 8, L"DIRECTSSTP", p.dicname, p.line);
