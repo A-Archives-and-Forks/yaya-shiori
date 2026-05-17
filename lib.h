@@ -36,8 +36,11 @@ class	CLib1
 {
 protected:
 	yaya::string_t	name;
+#if defined(WIN32)
 	yaya::global_t (*requestlib)(yaya::global_t h, long *len);
-#if defined(POSIX)
+#elif defined(POSIX)
+	yaya::global_t (*requestlib)(long id, yaya::global_t h, long *len);
+	long id;
 	std::string filename;
 #endif // POSIX
 
