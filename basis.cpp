@@ -10,6 +10,9 @@
 #endif
 
 #include <string.h>
+#if !defined(WIN32)
+# include <locale>
+#endif
 
 #include <iostream>
 #include <string>
@@ -73,7 +76,31 @@ CBasis::CBasis(CAyaVM &vmr) : vm(vmr)
 	checkparser = 0;
 	iolog       = 1;
 
-	msglang_for_compat = MSGLANG_JAPANESE;
+#if defined(WIN32)
+	{
+		// ユーザーの既定ロケールが日本語なら JAPANESE、それ以外は ENGLISH
+		LANGID langid = GetUserDefaultLangID();
+		if (PRIMARYLANGID(langid) == LANG_JAPANESE)
+			msglang_for_compat = MSGLANG_JAPANESE;
+		else
+			msglang_for_compat = MSGLANG_ENGLISH;
+	}
+#else
+	{
+		// C++ の既定ロケールを取得して判定する (グローバル状態は変更しない)
+		try {
+			std::string name = std::locale("").name();
+			if (name.find("ja") != std::string::npos || name.find("Japan") != std::string::npos)
+				msglang_for_compat = MSGLANG_JAPANESE;
+			else
+				msglang_for_compat = MSGLANG_ENGLISH;
+		}
+		catch (...) {
+			// ロケール名が取得できない環境では ENGLISH にフォールバック
+			msglang_for_compat = MSGLANG_ENGLISH;
+		}
+	}
+#endif
 
 	dic_charset       = CHARSET_SJIS;
 	setting_charset   = CHARSET_SJIS;
@@ -388,11 +415,20 @@ void	CBasis::LoadBaseConfigureFile(std::vector<CDic1> &dics)
 	yaya::string_t	filename = load_path + modulename + config_file_name_trailer + L".txt";
 
 	// 先に互換用にエラーメッセージテーブルを読んでおく。
-	// messagetxt指定が出てきたら yayamsg::LoadMessageFromTxt 内でちゃんとリセットされる。
 	SetParameter(L"messagetxt",msglang_for_compat == MSGLANG_JAPANESE ? L"messagetxt/japanese.txt" : L"messagetxt/english.txt");
+
+	// いったん退避（messagetxt_path は設定ファイルでの明示指定を検出するために控える）
+	char old_msglang = msglang_for_compat;
+	yaya::string_t old_messagetxt_path = messagetxt_path;
 	
 	// 読み込み当初は文字コードが定義されていないので、CHARSET_UNDEFにする
 	LoadBaseConfigureFile_Base(filename,dics,CHARSET_UNDEF);
+
+	// msglangが変わり、かつ設定ファイルでmessagetxtが明示指定されていない場合のみ読み直し
+	// （messagetxtを明示指定している場合はユーザー指定を優先し、上書きしない）
+	if ( old_msglang != msglang_for_compat && old_messagetxt_path == messagetxt_path ) {
+		SetParameter(L"messagetxt",msglang_for_compat == MSGLANG_JAPANESE ? L"messagetxt/japanese.txt" : L"messagetxt/english.txt");
+	}
 }
 
 void	CBasis::LoadBaseConfigureFile_Base(yaya::string_t filename,std::vector<CDic1> &dics,char cset)

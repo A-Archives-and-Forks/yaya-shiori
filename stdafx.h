@@ -29,6 +29,13 @@
 #define WIN32_LEAN_AND_MEAN		// Windows ヘッダーから殆ど使用されないスタッフを除外します
 #define NOMINMAX
 
+#ifndef WINVER
+#define WINVER 0x0500
+#endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0500
+#endif
+
 #include <windows.h>
 #include <winreg.h>
 #include <Winperf.h>
