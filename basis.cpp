@@ -65,6 +65,8 @@
 #define MSGLANG_ENGLISH 1
 #define MSGLANG_SIMPLIFIED_CHINESE 2
 #define MSGLANG_TRADITIONAL_CHINESE 3
+#define MSGLANG_KOREAN 4
+#define MSGLANG_GERMAN 5
 
 // 古いVC++のSDKでは香港/マカオのサブ言語IDが未定義の場合があるため補完
 #if defined(WIN32)
@@ -83,6 +85,8 @@ static const wchar_t* MsgLangToMessageTxt(char lang)
 	case MSGLANG_ENGLISH:             return L"messagetxt/english.txt";
 	case MSGLANG_SIMPLIFIED_CHINESE:  return L"messagetxt/simplified-chinese.txt";
 	case MSGLANG_TRADITIONAL_CHINESE: return L"messagetxt/traditional-chinese.txt";
+	case MSGLANG_KOREAN:              return L"messagetxt/korean.txt";
+	case MSGLANG_GERMAN:              return L"messagetxt/german.txt";
 	case MSGLANG_JAPANESE:
 	default:                          return L"messagetxt/japanese.txt";
 	}
@@ -102,7 +106,8 @@ CBasis::CBasis(CAyaVM &vmr) : vm(vmr)
 
 #if defined(WIN32)
 	{
-		// ユーザーの既定ロケールが日本語なら JAPANESE、中国語なら簡体/繁体、それ以外は ENGLISH
+		// ユーザーの既定ロケールが日本語なら JAPANESE、中国語なら簡体/繁体、
+		// 韓国語なら KOREAN、ドイツ語なら GERMAN、それ以外は ENGLISH
 		LANGID langid = GetUserDefaultLangID();
 		if (PRIMARYLANGID(langid) == LANG_JAPANESE) {
 			msglang_for_compat = MSGLANG_JAPANESE;
@@ -116,6 +121,12 @@ CBasis::CBasis(CAyaVM &vmr) : vm(vmr)
 				msglang_for_compat = MSGLANG_TRADITIONAL_CHINESE;
 			else
 				msglang_for_compat = MSGLANG_SIMPLIFIED_CHINESE;
+		}
+		else if (PRIMARYLANGID(langid) == LANG_KOREAN) {
+			msglang_for_compat = MSGLANG_KOREAN;
+		}
+		else if (PRIMARYLANGID(langid) == LANG_GERMAN) {
+			msglang_for_compat = MSGLANG_GERMAN;
 		}
 		else {
 			msglang_for_compat = MSGLANG_ENGLISH;
@@ -136,6 +147,12 @@ CBasis::CBasis(CAyaVM &vmr) : vm(vmr)
 					msglang_for_compat = MSGLANG_TRADITIONAL_CHINESE;
 				else
 					msglang_for_compat = MSGLANG_SIMPLIFIED_CHINESE;
+			}
+			else if (name.find("ko") != std::string::npos || name.find("Korea") != std::string::npos) {
+				msglang_for_compat = MSGLANG_KOREAN;
+			}
+			else if (name.find("de") != std::string::npos || name.find("German") != std::string::npos) {
+				msglang_for_compat = MSGLANG_GERMAN;
 			}
 			else {
 				msglang_for_compat = MSGLANG_ENGLISH;
@@ -710,6 +727,12 @@ bool CBasis::SetParameter(const yaya::string_t &cmd, const yaya::string_t &param
 		else if (param == L"traditional-chinese") {
 			msglang_for_compat = MSGLANG_TRADITIONAL_CHINESE;
 		}
+		else if (param == L"korean") {
+			msglang_for_compat = MSGLANG_KOREAN;
+		}
+		else if (param == L"german") {
+			msglang_for_compat = MSGLANG_GERMAN;
+		}
 		else {
 			msglang_for_compat = MSGLANG_JAPANESE;
 		}
@@ -922,6 +945,8 @@ CValue CBasis::GetParameter(const yaya::string_t &cmd)
 		case MSGLANG_ENGLISH:             return yaya::string_t(L"english");
 		case MSGLANG_SIMPLIFIED_CHINESE:  return yaya::string_t(L"simplified-chinese");
 		case MSGLANG_TRADITIONAL_CHINESE: return yaya::string_t(L"traditional-chinese");
+		case MSGLANG_KOREAN:              return yaya::string_t(L"korean");
+		case MSGLANG_GERMAN:              return yaya::string_t(L"german");
 		default:                          return yaya::string_t(L"japanese");
 		}
 	}
