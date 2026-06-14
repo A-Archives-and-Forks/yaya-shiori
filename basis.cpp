@@ -62,7 +62,31 @@
 
 //for compatibility only
 #define MSGLANG_JAPANESE 0
-#define MSGLANG_ENGLISH  1
+#define MSGLANG_ENGLISH 1
+#define MSGLANG_SIMPLIFIED_CHINESE 2
+#define MSGLANG_TRADITIONAL_CHINESE 3
+
+// 古いVC++のSDKでは香港/マカオのサブ言語IDが未定義の場合があるため補完
+#if defined(WIN32)
+#ifndef SUBLANG_CHINESE_HONGKONG
+#define SUBLANG_CHINESE_HONGKONG 0x03
+#endif
+#ifndef SUBLANG_CHINESE_MACAU
+#define SUBLANG_CHINESE_MACAU 0x05
+#endif
+#endif
+
+// msglang から既定のエラーメッセージテーブルのパスを得る
+static const wchar_t* MsgLangToMessageTxt(char lang)
+{
+	switch (lang) {
+	case MSGLANG_ENGLISH:             return L"messagetxt/english.txt";
+	case MSGLANG_SIMPLIFIED_CHINESE:  return L"messagetxt/simplified-chinese.txt";
+	case MSGLANG_TRADITIONAL_CHINESE: return L"messagetxt/traditional-chinese.txt";
+	case MSGLANG_JAPANESE:
+	default:                          return L"messagetxt/japanese.txt";
+	}
+}
 
 /* -----------------------------------------------------------------------
  * CBasisコンストラクタ
@@ -78,22 +102,44 @@ CBasis::CBasis(CAyaVM &vmr) : vm(vmr)
 
 #if defined(WIN32)
 	{
-		// ユーザーの既定ロケールが日本語なら JAPANESE、それ以外は ENGLISH
+		// ユーザーの既定ロケールが日本語なら JAPANESE、中国語なら簡体/繁体、それ以外は ENGLISH
 		LANGID langid = GetUserDefaultLangID();
-		if (PRIMARYLANGID(langid) == LANG_JAPANESE)
+		if (PRIMARYLANGID(langid) == LANG_JAPANESE) {
 			msglang_for_compat = MSGLANG_JAPANESE;
-		else
+		}
+		else if (PRIMARYLANGID(langid) == LANG_CHINESE) {
+			// 台湾・香港・マカオは繁体字、それ以外（中国本土・シンガポール等）は簡体字
+			WORD sublang = SUBLANGID(langid);
+			if (sublang == SUBLANG_CHINESE_TRADITIONAL ||
+				sublang == SUBLANG_CHINESE_HONGKONG ||
+				sublang == SUBLANG_CHINESE_MACAU)
+				msglang_for_compat = MSGLANG_TRADITIONAL_CHINESE;
+			else
+				msglang_for_compat = MSGLANG_SIMPLIFIED_CHINESE;
+		}
+		else {
 			msglang_for_compat = MSGLANG_ENGLISH;
+		}
 	}
 #else
 	{
 		// C++ の既定ロケールを取得して判定する (グローバル状態は変更しない)
 		try {
 			std::string name = std::locale("").name();
-			if (name.find("ja") != std::string::npos || name.find("Japan") != std::string::npos)
+			if (name.find("ja") != std::string::npos || name.find("Japan") != std::string::npos) {
 				msglang_for_compat = MSGLANG_JAPANESE;
-			else
+			}
+			else if (name.find("zh") != std::string::npos || name.find("Chinese") != std::string::npos) {
+				// zh_TW / zh_HK / zh_MO / Hant は繁体字、それ以外（zh_CN 等）は簡体字
+				if (name.find("TW") != std::string::npos || name.find("HK") != std::string::npos ||
+					name.find("MO") != std::string::npos || name.find("Hant") != std::string::npos)
+					msglang_for_compat = MSGLANG_TRADITIONAL_CHINESE;
+				else
+					msglang_for_compat = MSGLANG_SIMPLIFIED_CHINESE;
+			}
+			else {
 				msglang_for_compat = MSGLANG_ENGLISH;
+			}
 		}
 		catch (...) {
 			// ロケール名が取得できない環境では ENGLISH にフォールバック
@@ -415,7 +461,7 @@ void	CBasis::LoadBaseConfigureFile(std::vector<CDic1> &dics)
 	yaya::string_t	filename = load_path + modulename + config_file_name_trailer + L".txt";
 
 	// 先に互換用にエラーメッセージテーブルを読んでおく。
-	SetParameter(L"messagetxt",msglang_for_compat == MSGLANG_JAPANESE ? L"messagetxt/japanese.txt" : L"messagetxt/english.txt");
+	SetParameter(L"messagetxt",MsgLangToMessageTxt(msglang_for_compat));
 
 	// いったん退避（messagetxt_path は設定ファイルでの明示指定を検出するために控える）
 	char old_msglang = msglang_for_compat;
@@ -427,7 +473,7 @@ void	CBasis::LoadBaseConfigureFile(std::vector<CDic1> &dics)
 	// msglangが変わり、かつ設定ファイルでmessagetxtが明示指定されていない場合のみ読み直し
 	// （messagetxtを明示指定している場合はユーザー指定を優先し、上書きしない）
 	if ( old_msglang != msglang_for_compat && old_messagetxt_path == messagetxt_path ) {
-		SetParameter(L"messagetxt",msglang_for_compat == MSGLANG_JAPANESE ? L"messagetxt/japanese.txt" : L"messagetxt/english.txt");
+		SetParameter(L"messagetxt",MsgLangToMessageTxt(msglang_for_compat));
 	}
 }
 
@@ -658,6 +704,12 @@ bool CBasis::SetParameter(const yaya::string_t &cmd, const yaya::string_t &param
 		if (param == L"english") {
 			msglang_for_compat = MSGLANG_ENGLISH;
 		}
+		else if (param == L"simplified-chinese") {
+			msglang_for_compat = MSGLANG_SIMPLIFIED_CHINESE;
+		}
+		else if (param == L"traditional-chinese") {
+			msglang_for_compat = MSGLANG_TRADITIONAL_CHINESE;
+		}
 		else {
 			msglang_for_compat = MSGLANG_JAPANESE;
 		}
@@ -866,7 +918,12 @@ CValue CBasis::GetParameter(const yaya::string_t &cmd)
 	}
 	// msglang
 	else if ( cmd == L"msglang" ) { //obsolete, for compatibility
-		return yaya::string_t(msglang_for_compat == MSGLANG_ENGLISH ? L"english" : L"japanese");
+		switch (msglang_for_compat) {
+		case MSGLANG_ENGLISH:             return yaya::string_t(L"english");
+		case MSGLANG_SIMPLIFIED_CHINESE:  return yaya::string_t(L"simplified-chinese");
+		case MSGLANG_TRADITIONAL_CHINESE: return yaya::string_t(L"traditional-chinese");
+		default:                          return yaya::string_t(L"japanese");
+		}
 	}
 	// messagetxt
 	else if ( cmd == L"messagetxt" ) {
